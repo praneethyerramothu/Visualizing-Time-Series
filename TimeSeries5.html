@@ -1,0 +1,714 @@
+<!DOCTYPE html>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="styling.css">
+<style>
+
+
+.graphid path { 
+fill: none;
+}
+
+.axis path,
+.axis line {
+ fill: none;
+stroke: grey;
+stroke-width: 0.5;
+shape-rendering: crispEdges;
+}
+
+
+.background {
+ fill: none;
+pointer-events: all;
+}
+
+#states {
+//  fill: #aaa;
+stroke: #333;
+}
+
+#states .active {
+fill: orange;
+}
+
+#state-borders {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 1.5px;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: none;
+}
+.states-choropleth {
+  fill: #ccc;
+}
+#tooltip-container {
+  position: absolute;
+  background-color: #fff;
+  color: #000;
+  padding: 10px;
+  border: 1px solid;
+  display: none;
+}
+.tooltip_key {
+  font-weight: bold;
+}
+    
+.button {
+background-color: #4CAF50; /* Green */
+border: none;
+color: steelblue;
+padding: 5px 10px;
+text-align: center;
+text-decoration: none;
+display: inline-block;
+font-size: 16px;
+}
+    
+#menu {
+ position:absolute; top:75px;
+ left:10px;
+    }
+    
+    #ding{
+        /* background: url('meoww2.png') no-repeat; */
+ position:absolute;
+ top:0px;
+ left:0px;
+    /* align:middle; */
+        
+    } 
+    
+    #meow:hover {
+    background:#444;
+	border:1px solid #888;
+	color:red;
+    }
+    
+    #meow3:hover {
+        color:red;
+       background:#444;
+	border:1px solid #888;
+	
+    }
+
+    #check{
+position:absolute;
+ top:600px;
+ left:10px;
+    }
+    
+     #reset{
+position:absolute;
+  top:600px;
+ left:150px;
+    }
+    
+    
+    #usen {
+	font-family:segoe ui;
+	margin-left:40px;
+	font-size:32px;
+	color:#555;
+	margin-right:450px;
+}
+    
+    #state{
+     position:absolute;
+     top:600px;
+    left:30px;
+    }
+    
+    #nation{
+    position: absolute;
+    top: 600px;
+      left: 250px;
+    }
+    
+    #nation1{
+    position: absolute;
+    top:600px;
+    left:280px;
+    }
+</style>
+<body style=" background: 	#D8D8D8">
+    
+    <div id='nav'>
+<span id='usen'>Time Series - US Unemployment Rate</span>
+<hr>    
+
+</div>
+    
+<div id="ding"></div>
+    <br>
+    <br>
+
+    
+<div id="chart" >	</div>
+    
+    <input id="nation" type='checkbox' name='national' value='national' onchange=checktoggle1(this)><span id="nation1">National Unemployment Rate</span> 
+    
+    <input id= "check" type='checkbox' name='selectall' value='selectall' onchange=checktoggle2(this)><span id="state">Select all States</span><br><br>
+<input id="reset" type='button' name='reset' id='redra' value='Reset Graph' onClick=redraw()>
+    
+
+    
+    
+<div id="tooltip-container"></div>
+<script src="https://d3js.org/d3.v3.min.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="http://labratrevenge.com/d3-tip/javascripts/d3.tip.v0.6.3.js"></script>
+<script src="https://d3js.org/topojson.v1.min.js"></script>
+
+<script>
+var width = 600,
+    height = 204,
+    centered;	
+	
+var mappaths;
+var projection = d3.geo.albersUsa()
+    .scale(460)
+    .translate([width / 2, height / 2]);
+
+var path = d3.geo.path()
+    .projection(projection);
+
+	
+var color=d3.scale.category20c();
+
+var color3 = d3.scale.ordinal().range(["#F2DE8A",  "#b15e5e", "#e8a2a2", "#b98de5", "#82dfb8", "#dfb182",  "#56AE7C",  "#64B98C", "#72C39B", "#80CEAA", "#80CCB3", "#7FC9BD", "#7FC7C6", "#80A8CE", "#DFB95C","#7EC4CF", "#7FBBCF","#E38457", "#7FB1CF","#8F90CD", "#9788CD", "#E39158","#9E81CC","#EAD67C","#DBC75F", "#DDC05E", "#AA81C5", "#B681BE", "#C280B7", "#E2AA59","#f4f12e", "#CE80B0", "#D3779F",  "#8897CE","#D76D8F","#E05A6D",  "#DC647E", "#E16167", "#E26962", "#6cb15e","#E2705C", "#E37756",  "#809ECE",  "#E29D58", "#E0B15B",   "#E3CF6D", "#b2977b" ]);
+
+var selarr=[];
+var currentLegendY=0;
+var margin = {top: 30, right: 10, bottom: 100, left: 25},
+margin2 = {top: 350, right: 0, bottom: 30, left: 40},
+    width =550 - margin.left - margin.right,
+	legendX=width+30,
+    height = 430 - margin.top - margin.bottom,
+	height2 = 420 - margin2.top - margin2.bottom-15;
+
+var parseDate = d3.time.format("%d-%b-%y").parse;
+var parseDate2 = d3.time.format("%B-%Y").parse;
+
+var x = d3.time.scale().range([0, width]);
+x.domain([parseDate2("January-1978"),parseDate2("December-2016")]);
+
+var y = d3.scale.linear().range([height, 0]);
+var y1 = d3.scale.linear().range([height, 0]);
+var brushx;
+
+var xAxis = d3.svg.axis().scale(x)
+    .orient("bottom").ticks(7);
+	
+	
+var yAxis = d3.svg.axis().scale(y)
+    .orient("left").ticks(7);
+
+
+var context;
+var valueline = d3.svg.line()
+    .x(function(d) { return x(d.date); })
+    .y(function(d) { return y(d.unemplyment); });
+	var x2 = d3.time.scale().range([0, width]);
+
+x2.domain([parseDate2("January-1978"),parseDate2("January-2016")]);
+	brushx = d3.svg.brush().x(x2).on("brush", brushed);
+	var xAxis2 = d3.svg.axis().scale(x2)
+    .orient("bottom")
+
+	
+var svg = d3.select("body")
+    .append("svg")
+			
+        .attr("width", width + margin.left + margin.right)
+        .attr("height", height + margin.top + margin.bottom)
+		
+		.attr("class","graphid")
+    .append("g")
+        .attr("transform", 
+              "translate(" + margin.left + "," + margin.top + ")");	
+	
+svg.append("defs").append("clipPath")
+    .attr("id", "clip")
+  .append("rect")
+    .attr("width", width)
+    .attr("height", height);		
+
+var nationalg=svg.append("g")
+	.attr("class","national-g");	
+ context = svg.append("g")
+    .attr("class", "context")
+    .attr("transform", "translate(" + 0 + "," + margin2.top + ")");
+context.append("g")
+      .attr("class", "axis axis--x")
+      .attr("transform", "translate(0," + height2 + ")")
+      .call(xAxis2);
+	
+	 context.append("rect")
+    .attr("width",width)
+    .attr("height", 20)
+    .attr("class","overlay")
+    .attr("fill","grey");
+	
+	  context.append("g")
+      .attr("class", "brush")
+      .call(brushx)
+      .selectAll("rect")
+    .attr("height", height2)  
+      .attr("fill", "#E6E7E8");
+var color1=d3.scale.category20c();		  
+	
+
+var dataAll={};
+var dataNat={};
+var dataArray=[];
+
+var nationalArray=[];
+
+d3.csv("unemplyment.csv", function(error, data) {    
+  data.forEach(function(d) {
+	if(dataAll[d.State]==undefined)
+	dataAll[d.State]=[];
+	dataAll[d.State].push(d);
+  });
+  
+ for(var statename in dataAll) {
+  dataAll[statename].forEach(function(d) {
+    d.date = parseDate2(d.Month+"-"+d.Year);
+    d.unemplyment = +d["Unemployment rates by State, not seasonally adjusted"];
+    
+  });	
+	
+	dataAll[statename].sort(function(a,b){
+    if (a.date<b.date)
+        return -1;
+    else if (a.date>b.date)
+        return 1;
+    else
+        return 0;
+  }); 
+}
+});
+
+
+
+
+
+var svg1 = d3.select("body").append("svg")
+    .attr("width", width)
+    .attr("height", height+50)
+	.attr("class", "mapclass");
+
+var mapg = svg1.append("g");
+d3.tsv("https://s3-us-west-2.amazonaws.com/vida-public/geo/us-state-names.tsv", function(error, names) {
+  
+  name_id_map = {};
+  id_name_map = {};
+  
+  for (var i = 0; i < names.length; i++) {
+    name_id_map[names[i].name] = names[i].id;
+    id_name_map[names[i].id] = names[i].name;
+  }
+  
+  
+  });
+d3.json("usstates.json", function(error, us) {
+  if (error) throw error;
+ var valueById = d3.map();
+ var mapg2=mapg.append("g")
+  .attr("class", "states-choropleth")
+      .attr("id", "states")
+  mappaths= mapg2.selectAll("path")
+      .data(us.features)
+    .enter().append("path")
+	.attr("class","map-path")
+      .attr("d", path)
+	  .attr("test",function(d){
+	  console.log(d);
+	 
+	 // debugger;
+	  })
+      .on("click", clicked)
+	  .on("mousemove", function(d) {
+            var html = "";
+  
+            html += "<div class=\"tooltip_kv\">";
+            html += "<span class=\"tooltip_key\">";
+             html += d.properties.name;
+            html += "</span>";
+
+            html += "</div>";
+            
+            $("#tooltip-container").html(html);
+            $(this).attr("fill-opacity", "0.8");
+            $("#tooltip-container").show();
+            
+            var coordinates = d3.mouse(this);
+            
+            var map_width = $('.states-choropleth')[0].getBoundingClientRect().width;
+            
+            if (d3.event.layerX < map_width / 2) {
+              d3.select("#tooltip-container")
+                .style("top", (d3.event.layerY + 15) + "px")
+                .style("left", (d3.event.layerX + 15) + "px");
+            } else {
+              var tooltip_width = $("#tooltip-container").width();
+              d3.select("#tooltip-container")
+                .style("top", (d3.event.layerY + 15) + "px")
+                .style("left", (d3.event.layerX - tooltip_width - 30) + "px");
+            }
+        })
+        .on("mouseout", function() {
+                $(this).attr("fill-opacity", "1.0");
+                $("#tooltip-container").hide();
+            })
+			.attr("fill", function (d) {
+			return color3(d.properties.name);
+			});
+	  
+	  
+
+  mapg.append("path")
+      .datum(topojson.mesh(us, us.features, function(a, b) { return a !== b; }))
+      .attr("id", "state-borders")
+      .attr("d", path);
+	  
+});
+function brushed() {
+   x.domain(brushx.empty() ? x2.domain() : brushx.extent()); 
+    svg.select(".x-axis") 
+          .transition()
+          .call(xAxis);
+		  
+		  svg.selectAll(".line")
+		  .attr("clip-path","url(#clip)")
+		.attr("d", function (d) {
+		return valueline(d)
+		});
+		
+	
+}
+function clicked(d) {
+  var x, y, k;
+  
+
+  if (d && centered !== d) {
+    var centroid = path.centroid(d);
+    x = centroid[0];
+    y = centroid[1];
+    k = 4;
+    centered = d;
+  } else {
+    x = width / 2;
+    y = height / 2;
+    k = 1;
+    centered = null;
+  }
+
+  mapg.selectAll("path")
+      .classed("active", centered && function(d) { return d === centered; });
+
+	  debugger;
+//integration
+	 selarr.push(d.properties.name);
+	 regen();
+		
+}
+
+
+function checktoggle1(element1) {
+
+if(element1.checked){
+// read dat in to array
+nationalArray=[];
+	d3.csv("Nationalunem.csv", function(error, data) {   
+	nationalArray=data;
+	nationalArray.forEach(function(d) {
+		
+		  d.date = parseDate2(d.Month+"-"+d.Year);
+		  if(d.date==null)
+		  debugger
+		d.unemplyment = +d["Unemployment rates by State, not seasonally adjusted"];
+		
+	  });
+	  
+		debugger;
+		
+		nationalArray.sort(function(a,b){
+		if (a.date<b.date)
+			return -1;
+		else if (a.date>b.date)
+			return 1;
+		else
+			return 0;
+	  });
+	  debugger;
+
+  nationalg.append("path")
+  .attr("class","line3")
+.attr("d",valueline(nationalArray))
+.attr("stroke","#213D30")
+.attr("stroke-width","3");
+
+svg.select(".line3").append("title")
+	.text("National Unemployement");
+
+});
+
+
+	}
+	else{
+		
+  nationalg.select("path")
+  .attr("class","line3")
+.attr("d",null);
+	}
+}
+
+function checktoggle2(element2) {
+if(element2.checked){
+selarr=["Alabama","Alaska","Arizona","Arkansas","California","Colorado","Connecticut","Delaware","District of Columbia","Florida","Georgia","Hawaii","Idaho","Illinois","Indiana","Iowa","Kansas","Kentucky","Louisiana","Maine","Maryland","Massachusetts","Michigan","Minnesota","Mississippi","Missouri","Montana","Nebraska","Nevada","New Hampshire","New Jersey","New Mexico","New York","North Carolina","North Dakota","Ohio","Oklahoma","Oregon","Pennsylvania","Rhode Island","South Carolina","South Dakota","Tennessee","Texas","Utah","Vermont","Virginia","Washington","West Virginia","Wisconsin","Wyoming"];
+regen();
+}
+else {
+svg.selectAll(".line")
+	.attr("d",null);
+	
+	currentLegendY=0;
+  selarr=[];
+
+svg.selectAll(".rects")
+ .remove();
+
+ svg.selectAll(".texts")
+ .remove();	
+}
+}
+
+
+function redraw() {
+svg.selectAll(".line")
+  .attr("d",null);
+  
+  currentLegendY=0;
+  selarr=[];
+ //redraw rects and text
+ svg.selectAll(".rects")
+ .remove();
+
+ svg.selectAll(".texts")
+ .remove();
+}
+
+svg.append("g")
+      .attr("class", "x-axis")
+        .style("fill", "green")
+      .attr("transform", "translate(0," + height + ")")
+      .call(xAxis)
+  .append("text")
+                                             //  .style("fill", "steelblue")
+    .attr("transform", "rotate(0)")
+    .attr("y", -35)
+    .attr("x", 605)
+    .attr("dy", ".71em")
+    .style("text-anchor", "end")
+    .text("Time");
+
+
+
+regen();
+
+
+function regen() {
+
+d3.csv("unemplyment.csv", function(error, data) {    
+
+dataArray=[];
+	// Scale the range of the data
+    //x.domain(d3.extent(dataAll["Indiana"], function(d) { return d.date; }));
+    y.domain([0, 23]); 
+   
+	
+	
+	for(var statename in dataAll) {
+	for(var i=0;i<selarr.length;i++) {
+	if(statename==selarr[i]) {
+	dataArray.push(dataAll[statename]);
+	}
+	}
+	}
+	
+	for(var statename in dataArray) {
+  dataArray[statename].forEach(function(d) {
+    d.date = parseDate2(d.Month+"-"+d.Year);
+    d.unemplyment = +d["Unemployment rates by State, not seasonally adjusted"];
+    
+  });	
+	
+	dataArray[statename].sort(function(a,b){
+    if (a.date<b.date)
+        return -1;
+    else if (a.date>b.date)
+        return 1;
+    else
+        return 0;
+  });
+  
+}
+
+	svg.selectAll(".line")
+	.data(dataArray,function(d){
+	return d[0].State})
+	.enter()
+	.append("path")       
+        .attr("class", "line")
+		.attr("stroke-width", 2)
+		.attr("stroke", function(d) {
+		return color3(d[0].State);
+		})
+		.attr("d", function (d) {
+		return valueline(d)
+		})
+		.on("mouseover", function(d1) {
+		svg.selectAll(".line")
+		.transition().duration(250)
+		.attr("stroke-opacity", function(d2) {
+		if(d1==d2)
+		return 1;
+		else
+		return 0.01;
+		});
+		mapg.selectAll(".map-path")
+		.attr("fill-opacity",function(d2){
+			if(d2.properties.name==d1[0].State){
+			return "1.0";
+			}
+			else{
+			return "0.1";
+			}
+		})
+		
+		})
+		
+		.on("mouseout", function(d) {
+		svg.selectAll(".line")
+		.transition().duration(250)
+		.attr("stroke-opacity", 1);
+		mapg.selectAll(".map-path")
+		.attr("fill-opacity",function(d2){
+			return "1.0"
+		})
+		});
+		
+
+		svg.selectAll(".line1")
+	.data(dataArray).enter()
+	.append("path")                       //for path of time series
+        .attr("class", "line1")
+		.attr("stroke-width", 7)
+		.attr("stroke-opacity", 0)
+		.attr("stroke", function(d) {
+		return color3(d[0].State);
+		})
+		.attr("d", function (d) {
+		return valueline(d)
+		})
+		.on("mouseover", function(d1) {
+		svg.selectAll(".line")
+		.transition().duration(250)
+		.attr("stroke-opacity", function(d2) {
+		if(d1==d2)
+		return 1;
+		else
+		return 0.1;
+		});
+		mapg.selectAll(".map-path")
+		.attr("fill-opacity",function(d2){
+			if(d2.properties.name==d1[0].State){
+			return "1.0";
+			}
+			else{
+			return "0.0";
+			}
+		})
+		})
+		.on("mouseout", function(d) {
+		svg.selectAll(".line")
+		.transition().duration(250)
+		.attr("stroke-opacity", 1);
+		mapg.selectAll(".map-path")
+		.attr("fill-opacity",function(d2){
+			return "1.0"
+		})
+		});
+		
+	svg.selectAll(".line").append("title")
+	.text(function(d) {
+	return d[0].State;
+	});
+	
+	svg.selectAll(".line1").append("title")
+	.text(function(d) {
+	return d[0].State;
+	});
+
+   
+       
+    svg.append("text")
+                                               //  .style("fill", "steelblue")
+      .attr("transform", "rotate(0)")
+      .attr("y", -35)
+      .attr("x", 605)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Time"); 
+   
+    svg.append("g")
+        .attr("class", "y axis")
+        .style("fill", "steelblue")
+    
+        .call(yAxis)
+    .append("text")
+      .attr("transform", "rotate(-90)")
+      .attr("y", 6)
+      .attr("dy", ".71em")
+      .style("text-anchor", "end")
+      .text("Rate");	
+        currentLegendY=currentLegendY+20;
+		svg.selectAll(".rects")
+		.data(dataArray,function(d){
+			debugger
+			return d[0].State;
+		})
+		.enter()
+		.append("rect")
+		.attr("class","rects")
+		.attr("x",legendX)
+		.attr("y",currentLegendY)
+		.attr("width",15)
+		.attr("height",15)
+		.style("fill", function(f){
+		return color3(f[0].State);
+		});
+		
+		svg.selectAll(".texts")
+		.data(dataArray,function(d){
+			debugger
+			return d[0].State;
+		})
+		.enter()
+		.append("text")
+		.attr("class","texts")
+		.attr("x",legendX+20)
+		.attr("y",currentLegendY+13)
+		.attr("width",15)
+		.attr("height",15)
+		.text(function(f){
+		return f[0].State;
+		});
+	
+
+});
+}
+
+    </script></body>
